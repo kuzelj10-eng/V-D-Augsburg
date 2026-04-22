@@ -2,27 +2,77 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stadt Augsburg - Verkehrsüberwachung</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VÜD Augsburg - Premium Portal</title>
+    
+    <!-- PWA & Icon Setup -->
+    <link rel="icon" type="image/png" href="logo.PNG">
+    <link rel="apple-touch-icon" href="logo.PNG">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VÜD Augsburg">
+
+    <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.css">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; -webkit-print-color-adjust: exact; }
-        .bg-ordnungsamt-blue { background-color: #00305e; }
-        .text-ordnungsamt-blue { color: #00305e; }
-        .border-ordnungsamt-blue { border-color: #00305e; }
-        @media print { .no-print { display: none !important; } }
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;700&display=swap');
+        
+        :root {
+            --gold: #D4AF37;
+            --black: #000000;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--black); 
+            color: #ffffff;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-luxury { font-family: 'Cinzel', serif; }
+        
+        .gold-border { border: 1px solid var(--gold); }
+        .gold-text { color: var(--gold); }
+        .gold-bg { background-color: var(--gold); }
+        
+        /* Premium Glow Effekt */
+        .gold-glow:focus {
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+            border-color: var(--gold);
+        }
+
+        .gold-button {
+            background: linear-gradient(135deg, #D4AF37 0%, #F1D37E 50%, #D4AF37 100%);
+            color: #000;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s ease;
+        }
+
+        .gold-button:active { transform: scale(0.96); opacity: 0.9; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #D4AF37; }
+
+        .image-preview {
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const DISTRICTS = [
             'INNENSTADT', 'OBERHAUSEN', 'BÄRENKELLER', 'FIRNHABERAU', 'HAMMERSCHMIEDE', 
@@ -31,44 +81,25 @@
             'GÖGGINGEN', 'INNINGEN', 'BERGHEIM', 'HAUNSTETTEN', 'SIEBENBRUNN'
         ];
 
-        const OfficialLogo = ({ className = "h-12" }) => (
-            <div className={`flex items-center gap-3 ${className}`}>
-                <div className="relative w-10 h-12 flex-shrink-0">
-                    <svg viewBox="0 0 100 120" className="w-full h-full">
-                        <path d="M5,5 Q5,110 50,115 Q95,110 95,5 Z" fill="white" stroke="#00305e" strokeWidth="2"/>
-                        <path d="M5,5 L50,5 L50,115 Q5,110 5,5 Z" fill="#8b0000"/>
-                        <path d="M50,15 L35,45 L50,35 L65,45 Z" fill="#006400"/>
-                        <path d="M50,40 L30,85 L50,75 L70,85 Z" fill="#006400"/>
-                        <path d="M45,100 L55,100 L55,110 L45,110 Z" fill="#b8860b"/>
-                    </svg>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[#8b0000] font-black text-lg leading-none tracking-tight">Verkehrsüberwachung</span>
-                    <span className="text-[#006400] font-bold text-sm leading-none">Stadt Augsburg</span>
-                </div>
-            </div>
-        );
-
         function App() {
             const [user, setUser] = useState(null);
             const [view, setView] = useState('DASHBOARD');
             const [entries, setEntries] = useState([]);
-            const [filterDist, setFilterDist] = useState('ALLE');
             const [isCompressing, setIsCompressing] = useState(false);
             const [captureData, setCaptureData] = useState({ street: '', district: DISTRICTS[0], description: '', img: null });
             const fileRef = useRef();
 
             useEffect(() => {
-                const saved = localStorage.getItem('augs_v5_data');
+                const saved = localStorage.getItem('vud_premium_data');
                 if (saved) setEntries(JSON.parse(saved));
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('augs_v5_data', JSON.stringify(entries));
+                localStorage.setItem('vud_premium_data', JSON.stringify(entries));
             }, [entries]);
 
-            // --- KOMPRESSIONS-LOGIK ---
-            const handleImageUpload = (file) => {
+            // --- PHOTO FIX: Canvas Kompression ---
+            const processImage = (file) => {
                 if (!file) return;
                 setIsCompressing(true);
                 const reader = new FileReader();
@@ -77,14 +108,13 @@
                     const img = new Image();
                     img.src = e.target.result;
                     img.onload = () => {
-                        const maxWidth = 1280;
+                        const MAX_WIDTH = 1280;
                         let width = img.width;
                         let height = img.height;
 
-                        // Seitenverhältnis beibehalten
-                        if (width > maxWidth) {
-                            height = Math.round((maxWidth / width) * height);
-                            width = maxWidth;
+                        if (width > MAX_WIDTH) {
+                            height = Math.round((MAX_WIDTH / width) * height);
+                            width = MAX_WIDTH;
                         }
 
                         const canvas = document.createElement('canvas');
@@ -93,24 +123,18 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Konvertierung zu JPEG 0.7
-                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                        setCaptureData(prev => ({ ...prev, img: compressedDataUrl }));
+                        // JPEG Drosselung auf 0.7 Qualität
+                        const compressedData = canvas.toDataURL('image/jpeg', 0.7);
+                        setCaptureData(prev => ({ ...prev, img: compressedData }));
                         setIsCompressing(false);
                     };
                 };
                 reader.readAsDataURL(file);
             };
 
-            const toggleStatus = (index) => {
-                const newEntries = [...entries];
-                newEntries[index].status = newEntries[index].status === 'AKTUELL' ? 'ERLEDIGT' : 'AKTUELL';
-                setEntries(newEntries);
-            };
-
             const addEntry = () => {
                 if (captureData.street && captureData.img) {
-                    const newEntry = { ...captureData, status: 'AKTUELL', time: new Date().toLocaleString('de-DE') };
+                    const newEntry = { ...captureData, id: Date.now(), timestamp: new Date().toLocaleString('de-DE') };
                     setEntries([newEntry, ...entries]);
                     setCaptureData({ street: '', district: DISTRICTS[0], description: '', img: null });
                     setView('DASHBOARD');
@@ -119,109 +143,155 @@
 
             if (!user) {
                 return (
-                    <div className="min-h-screen bg-[#001a33] flex items-center justify-center p-6">
-                        <div className="w-full max-w-sm bg-white shadow-2xl rounded-3xl overflow-hidden">
-                            <div className="p-10 text-center border-b border-gray-100">
-                                <OfficialLogo className="justify-center mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00305e] opacity-70">Digitales Fachportal</p>
+                    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-black">
+                        <img src="logo.PNG" className="w-48 h-48 mb-12 animate-pulse" alt="VÜD" />
+                        <div className="w-full max-w-sm space-y-8">
+                            <div className="text-center">
+                                <h1 className="font-luxury text-3xl gold-text tracking-widest uppercase">VÜD AUGSBURG</h1>
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-2">Premium Dienst-Portal</p>
                             </div>
-                            <form onSubmit={(e) => { e.preventDefault(); setUser({name: e.target.name_in.value, role: e.target.role_in.value}); }} className="p-8 space-y-6">
-                                <input name="name_in" required className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold uppercase text-xs outline-none focus:border-ordnungsamt-blue" placeholder="NACHNAME, VORNAMEN" />
-                                <select name="role_in" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold uppercase text-xs outline-none">
-                                    <option value="field">Außendienst (VÜ)</option>
-                                    <option value="office">Innendienst (Zentrale)</option>
-                                </select>
-                                <button type="submit" className="w-full py-5 bg-ordnungsamt-blue text-white font-black uppercase tracking-widest rounded-xl shadow-lg">Anmelden</button>
-                            </form>
+                            <div className="space-y-4">
+                                <input id="login_name" placeholder="DIENSTNUMMER / NAME" className="w-full p-5 bg-zinc-900/50 border border-zinc-800 gold-glow rounded-none text-xs font-bold uppercase outline-none text-white focus:border-[#D4AF37]" />
+                                <button onClick={() => {
+                                    const val = document.getElementById('login_name').value;
+                                    if(val) setUser({name: val});
+                                }} className="w-full py-5 gold-button shadow-[0_0_20px_rgba(212,175,55,0.2)]">Login bestätigen</button>
+                            </div>
                         </div>
                     </div>
                 );
             }
 
-            const filteredEntries = entries.filter(e => filterDist === 'ALLE' || e.district === filterDist);
-
             return (
-                <div className="max-w-md mx-auto h-screen bg-white shadow-2xl flex flex-col relative border-x border-gray-100 overflow-hidden">
-                    <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 no-print">
-                        <OfficialLogo className="h-10" />
-                        <button onClick={() => setUser(null)} className="p-3 text-gray-300 hover:text-ordnungsamt-blue"><i className="lucide-log-out"></i></button>
+                <div className="max-w-md mx-auto min-h-screen bg-black flex flex-col relative border-x border-zinc-900">
+                    
+                    {/* Header */}
+                    <header className="h-24 bg-black/80 backdrop-blur-md border-b border-zinc-900 px-6 flex items-center justify-between sticky top-0 z-50">
+                        <div className="flex items-center gap-4">
+                            <img src="logo.PNG" className="h-14 w-14 object-contain" />
+                            <div className="flex flex-col">
+                                <span className="font-luxury text-lg gold-text leading-none">VÜD</span>
+                                <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Augsburg</span>
+                            </div>
+                        </div>
+                        <button onClick={() => setUser(null)} className="p-2 text-zinc-500 hover:text-[#D4AF37]"><i className="lucide-log-out"></i></button>
                     </header>
 
-                    <div className="flex-1 overflow-y-auto pb-24">
+                    {/* Main Area */}
+                    <main className="flex-1 overflow-y-auto pb-24">
+                        
                         {view === 'DASHBOARD' && (
                             <div className="p-6">
-                                <div className="flex justify-between items-center mb-6 text-ordnungsamt-blue">
-                                    <h2 className="text-xl font-black uppercase tracking-tighter">Meldungen</h2>
-                                    <button onClick={() => setView('AUFNAHME')} className="size-12 bg-ordnungsamt-blue text-white rounded-full flex items-center justify-center shadow-lg"><i className="lucide-plus"></i></button>
+                                <div className="flex justify-between items-end mb-10">
+                                    <div>
+                                        <h2 className="text-2xl font-luxury text-white">Einsatzjournal</h2>
+                                        <p className="text-[9px] gold-text font-bold uppercase tracking-widest mt-1">Status: Online</p>
+                                    </div>
+                                    <button onClick={() => setView('AUFNAHME')} className="size-14 gold-button rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)]">
+                                        <i className="lucide-plus text-2xl"></i>
+                                    </button>
                                 </div>
-                                <select value={filterDist} onChange={e => setFilterDist(e.target.value)} className="w-full mb-8 p-3 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-bold uppercase outline-none focus:border-ordnungsamt-blue">
-                                    <option value="ALLE">Alle Stadtbezirke</option>
-                                    {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                                <div className="space-y-5">
-                                    {filteredEntries.map((e, idx) => (
-                                        <div key={idx} className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
-                                            <img src={e.img} className="w-full h-44 object-cover" />
-                                            <div className="p-4 space-y-3">
-                                                <div className="flex justify-between items-start">
-                                                    <div><h3 className="text-xs font-black uppercase text-ordnungsamt-blue">{e.street}</h3><p className="text-[9px] font-bold text-gray-400 uppercase">{e.district}</p></div>
-                                                    <button onClick={() => toggleStatus(entries.indexOf(e))} className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${e.status === 'AKTUELL' ? 'bg-red-50 text-red-800 border-red-100' : 'bg-green-50 text-green-800 border-green-100'}`}>{e.status}</button>
+
+                                {entries.length === 0 ? (
+                                    <div className="mt-20 text-center border border-zinc-900 rounded-3xl p-16">
+                                        <i className="lucide-map-pin text-3xl text-zinc-800 mb-6 font-light"></i>
+                                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Journal ist leer</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-6">
+                                        {entries.map(e => (
+                                            <div key={e.id} className="bg-zinc-900/30 border border-zinc-800 rounded-2xl overflow-hidden group">
+                                                <img src={e.img} className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                                <div className="p-5">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <h3 className="text-xs font-bold gold-text uppercase">{e.street}</h3>
+                                                        <span className="text-[8px] text-zinc-500 font-mono italic">{e.timestamp}</span>
+                                                    </div>
+                                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{e.district}</p>
                                                 </div>
-                                                <p className="text-[10px] text-gray-500 italic line-clamp-2">{e.description}</p>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {view === 'AUFNAHME' && (
                             <div className="p-6 space-y-6">
-                                <div className="flex items-center gap-4 mb-4 text-ordnungsamt-blue"><button onClick={() => setView('DASHBOARD')} className="p-2 text-gray-300"><i className="lucide-arrow-left"></i></button><h2 className="text-sm font-black uppercase">Beweissicherung</h2></div>
-                                <div onClick={() => fileRef.current.click()} className="aspect-square bg-gray-50 border-2 border-dashed border-gray-100 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden border-ordnungsamt-blue">
-                                    {isCompressing ? <div className="flex flex-col items-center"><i className="lucide-loader-2 animate-spin text-ordnungsamt-blue mb-2"></i><p className="text-[8px] font-black uppercase text-gray-400">Verarbeite Bild...</p></div> : 
-                                     captureData.img ? <img src={captureData.img} className="w-full h-full object-cover" /> : 
-                                     <div className="text-center"><i className="lucide-camera text-4xl text-ordnungsamt-blue mb-2"></i><p className="text-[10px] font-black text-gray-300 uppercase underline">Kamera öffnen</p></div>}
-                                    <input type="file" ref={fileRef} className="hidden" accept="image/*" capture="environment" onChange={e => handleImageUpload(e.target.files[0])} />
+                                <div className="flex items-center gap-4 mb-4">
+                                    <button onClick={() => setView('DASHBOARD')} className="p-2 text-zinc-500"><i className="lucide-arrow-left"></i></button>
+                                    <h2 className="text-sm font-luxury gold-text tracking-widest uppercase">AUFNAHME</h2>
                                 </div>
+                                
+                                <div onClick={() => fileRef.current.click()} className="aspect-square bg-zinc-900/50 border border-zinc-800 gold-border rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                                    {isCompressing ? (
+                                        <div className="flex flex-col items-center">
+                                            <i className="lucide-loader-2 animate-spin gold-text text-3xl mb-4"></i>
+                                            <span className="text-[10px] font-bold gold-text uppercase tracking-widest">Optimierung...</span>
+                                        </div>
+                                    ) : captureData.img ? (
+                                        <img src={captureData.img} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="text-center group">
+                                            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center gold-text border border-zinc-800 mb-4 mx-auto shadow-[0_0_20px_rgba(212,175,55,0.1)] group-hover:scale-110 transition-transform">
+                                                <i className="lucide-camera text-2xl"></i>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Kamera Öffnen</p>
+                                        </div>
+                                    )}
+                                    <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileRef} onChange={e => processImage(e.target.files[0])} />
+                                </div>
+
                                 <div className="space-y-4">
-                                    <input value={captureData.street} onChange={e => setCaptureData({...captureData, street: e.target.value})} placeholder="ADRESSE / STANDORT EXAKT" className="w-full p-4 border border-gray-100 rounded-xl text-xs font-bold uppercase outline-none focus:border-ordnungsamt-blue" />
-                                    <select value={captureData.district} onChange={e => setCaptureData({...captureData, district: e.target.value})} className="w-full p-4 border border-gray-100 rounded-xl text-xs font-bold uppercase outline-none">
-                                        {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                    <input value={captureData.street} onChange={e => setCaptureData({...captureData, street: e.target.value})} placeholder="ADRESSE / ORT" className="w-full p-5 bg-zinc-900/40 border border-zinc-800 gold-glow rounded-xl text-xs font-bold uppercase outline-none text-white" />
+                                    <select value={captureData.district} onChange={e => setCaptureData({...captureData, district: e.target.value})} className="w-full p-5 bg-zinc-900/40 border border-zinc-800 rounded-xl text-[10px] font-bold gold-text uppercase outline-none">
+                                        {DISTRICTS.map(d => <option key={d} value={d} className="bg-black">{d}</option>)}
                                     </select>
-                                    <textarea value={captureData.description} onChange={e => setCaptureData({...captureData, description: e.target.value})} placeholder="ZUSÄTZLICHE FESTSTELLUNGEN..." className="w-full p-4 border border-gray-100 rounded-xl text-sm min-h-[120px] outline-none" />
-                                    <button onClick={addEntry} disabled={isCompressing || !captureData.img} className={`w-full py-5 text-white font-black uppercase tracking-[0.2em] rounded-xl shadow-xl transition-all ${isCompressing || !captureData.img ? 'bg-gray-300' : 'bg-ordnungsamt-blue active:scale-95'}`}>Protokoll abschließen</button>
+                                    <textarea value={captureData.description} onChange={e => setCaptureData({...captureData, description: e.target.value})} placeholder="DIENSTLICHE BEMERKUNG..." className="w-full p-5 bg-zinc-900/40 border border-zinc-800 rounded-xl text-xs italic min-h-[100px] outline-none text-zinc-400" />
+                                    <button onClick={addEntry} disabled={isCompressing || !captureData.img} className={`w-full py-5 gold-button rounded-xl shadow-lg transition-all ${isCompressing || !captureData.img ? 'opacity-30' : ''}`}>Protokoll Signieren</button>
                                 </div>
                             </div>
                         )}
 
-                        {view === 'BERICHTE' && (
-                            <div className="p-6">
-                                <div className="flex justify-between items-center mb-8 text-ordnungsamt-blue"><h2 className="text-xl font-black uppercase tracking-tighter">Berichte</h2><button onClick={() => window.print()} className="p-3 bg-gray-50 rounded-xl text-gray-400 hover:text-ordnungsamt-blue"><i className="lucide-printer"></i></button></div>
-                                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                                    <table className="w-full text-left text-[9px] uppercase font-bold">
-                                        <thead><tr className="bg-gray-50 border-b border-gray-100 text-gray-400"><th className="p-4">Ortung</th><th className="p-4">Stadtbezirk</th><th className="p-4">Status</th></tr></thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {entries.map((e, i) => (<tr key={i}><td className="p-4">{e.street}</td><td className="p-4 text-gray-400">{e.district}</td><td className="p-4">{e.status}</td></tr>))}
-                                        </tbody>
-                                    </table>
+                        {view === 'SYSTEM' && (
+                            <div className="p-8 space-y-8 animate-in fade-in duration-700">
+                                <h1 className="text-2xl font-luxury gold-text tracking-widest text-center">SYSTEM-EXPORT</h1>
+                                <div className="p-8 border border-zinc-800 rounded-3xl bg-zinc-900/10 backdrop-blur-sm">
+                                    <div className="flex flex-col items-center text-center space-y-6">
+                                        <i className="lucide-file-text text-4xl gold-text"></i>
+                                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.3em] leading-relaxed">
+                                            Vollständiges Journal exportieren<br/>
+                                            Beweisstücke: {entries.length}
+                                        </p>
+                                        <button onClick={() => window.print()} className="px-8 py-3 bg-zinc-900 text-[10px] font-black uppercase gold-text border border-[#D4AF37]/30 tracking-widest">
+                                            Bericht Erstellen
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="text-center opacity-30">
+                                    <p className="text-[8px] uppercase tracking-widest">Digitales Siegel VÜD v4.1.0</p>
                                 </div>
                             </div>
                         )}
-                    </div>
 
-                    <nav className="h-20 bg-white border-t border-gray-50 flex items-center justify-around shrink-0 no-print">
-                        <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'DASHBOARD' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-layout-grid"></i><span className="text-[8px] font-black uppercase">Dashboard</span></button>
-                        <button onClick={() => setView('AUFNAHME')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'AUFNAHME' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-camera"></i><span className="text-[8px] font-black uppercase">Foto</span></button>
-                        <button onClick={() => setView('BERICHTE')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'BERICHTE' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-file-text"></i><span className="text-[8px] font-black uppercase">Berichte</span></button>
+                    </main>
+
+                    {/* Bottom Utility Bar */}
+                    <nav className="h-20 bg-black/90 backdrop-blur-md border-t border-zinc-900 flex items-center justify-around px-2 z-50">
+                        <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'DASHBOARD' ? 'gold-text' : 'text-zinc-600'}`}>
+                            <i className="lucide-layout-grid text-xl"></i>
+                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">Journal</span>
+                        </button>
+                        <button onClick={() => setView('AUFNAHME')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'AUFNAHME' ? 'gold-text' : 'text-zinc-600'}`}>
+                            <i className="lucide-camera text-xl"></i>
+                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">Aufnahme</span>
+                        </button>
+                        <button onClick={() => setView('SYSTEM')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'SYSTEM' ? 'gold-text' : 'text-zinc-600'}`}>
+                            <i className="lucide-file-text text-xl"></i>
+                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">System</span>
+                        </button>
                     </nav>
 
-                    <div className="hidden print:block p-10 bg-white">
-                        <div className="flex flex-col items-center border-b-2 border-ordnungsamt-blue pb-8">
-                             <OfficialLogo className="h-16 mb-4" />
-                             <h1 className="text-2xl font-black uppercase tracking-widest text-[#00305e]">Einsatzjournal - Beweissicherung</h1>
-                        </div>
-                    </div>
                 </div>
             );
         }
