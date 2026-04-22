@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stadt Augsburg - Verkehrsüberwachung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; -webkit-print-color-adjust: exact; }
+        
+        /* Neue Dienstfarben: Verkehrsüberwachung Blau */
+        .bg-ordnungsamt-blue { background-color: #00305e; }
+        .text-ordnungsamt-blue { color: #00305e; }
+        .border-ordnungsamt-blue { border-color: #00305e; }
+        
+        .bg-augsburg-red { background-color: #8b0000; } /* Nur für das Wappen */
+        .text-augsburg-green { color: #006400; } /* Nur für das Wappen */
+
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const DISTRICTS = [
+            'INNENSTADT', 'OBERHAUSEN', 'BÄRENKELLER', 'FIRNHABERAU', 'HAMMERSCHMIEDE', 
+            'LECHHAUSEN', 'HOCHZOLL', 'HERRENBACH', 'SPICKEL', 'HOCHFELD', 
+            'ANTONSVIERTEL', 'ROSENAU-', 'THELOTTVIERTEL', 'PFERSEE', 'KRIEGSHABER', 
+            'GÖGGINGEN', 'INNINGEN', 'BERGHEIM', 'HAUNSTETTEN', 'SIEBENBRUNN'
+        ];
+
+        // Offizielles Logo Layout
+        const OfficialLogo = ({ className = "h-12" }) => (
+            <div className={`flex items-center gap-3 ${className}`}>
+                <div className="relative w-10 h-12 flex-shrink-0">
+                    <svg viewBox="0 0 100 120" className="w-full h-full">
+                        <path d="M5,5 Q5,110 50,115 Q95,110 95,5 Z" fill="white" stroke="#00305e" strokeWidth="2"/>
+                        <path d="M5,5 L50,5 L50,115 Q5,110 5,5 Z" fill="#8b0000"/>
+                        <path d="M50,15 L35,45 L50,35 L65,45 Z" fill="#006400"/>
+                        <path d="M50,40 L30,85 L50,75 L70,85 Z" fill="#006400"/>
+                        <path d="M45,100 L55,100 L55,110 L45,110 Z" fill="#b8860b"/>
+                    </svg>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[#8b0000] font-black text-lg leading-none tracking-tight">Verkehrsüberwachung</span>
+                    <span className="text-[#006400] font-bold text-sm leading-none">Stadt Augsburg</span>
+                </div>
+            </div>
+        );
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('DASHBOARD');
+            const [entries, setEntries] = useState([]);
+            const [filterDist, setFilterDist] = useState('ALLE');
+            const [captureData, setCaptureData] = useState({ street: '', district: DISTRICTS[0], description: '', img: null });
+            const fileRef = useRef();
+
+            useEffect(() => {
+                const saved = localStorage.getItem('augs_v4_data');
+                if (saved) setEntries(JSON.parse(saved));
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('augs_v4_data', JSON.stringify(entries));
+            }, [entries]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const name = e.target.name_in.value;
+                const role = e.target.role_in.value;
+                if (name) setUser({ name, role });
+            };
+
+            const toggleStatus = (index) => {
+                const newEntries = [...entries];
+                newEntries[index].status = newEntries[index].status === 'AKTUELL' ? 'ERLEDIGT' : 'AKTUELL';
+                setEntries(newEntries);
+            };
+
+            const addEntry = () => {
+                if (captureData.street && captureData.img) {
+                    const newEntry = { ...captureData, status: 'AKTUELL', time: new Date().toLocaleString('de-DE') };
+                    setEntries([newEntry, ...entries]);
+                    setCaptureData({ street: '', district: DISTRICTS[0], description: '', img: null });
+                    setView('DASHBOARD');
+                }
+            };
+
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-[#001a33] flex items-center justify-center p-6">
+                        <div className="w-full max-w-sm bg-white shadow-2xl rounded-3xl overflow-hidden">
+                            <div className="p-10 text-center border-b border-gray-100">
+                                <OfficialLogo className="justify-center mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00305e] opacity-70">Digitales Fachportal</p>
+                            </div>
+                            <form onSubmit={handleLogin} className="p-8 space-y-6">
+                                <div>
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Mitarbeiter</label>
+                                    <input name="name_in" required className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold uppercase text-xs outline-none focus:border-ordnungsamt-blue" placeholder="NACHNAME, VORNAMEN" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Dienststelle</label>
+                                    <select name="role_in" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold uppercase text-xs outline-none">
+                                        <option value="field">Außendienst (VÜ)</option>
+                                        <option value="office">Innendienst (Zentrale)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="w-full py-5 bg-ordnungsamt-blue text-white font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all">Anmelden</button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            const filteredEntries = entries.filter(e => filterDist === 'ALLE' || e.district === filterDist);
+
+            return (
+                <div className="max-w-md mx-auto h-screen bg-white shadow-2xl flex flex-col relative border-x border-gray-100 overflow-hidden">
+                    
+                    {/* Header */}
+                    <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 no-print">
+                        <OfficialLogo className="h-10" />
+                        <button onClick={() => setUser(null)} className="p-3 text-gray-300 hover:text-ordnungsamt-blue transition-colors"><i className="lucide-log-out"></i></button>
+                    </header>
+
+                    {/* Main Content */}
+                    <div className="flex-1 overflow-y-auto pb-24">
+                        
+                        {/* VIEW: DASHBOARD */}
+                        {view === 'DASHBOARD' && (
+                            <div className="p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-black uppercase tracking-tighter text-ordnungsamt-blue">Meldungen</h2>
+                                    <button onClick={() => setView('AUFNAHME')} className="size-12 bg-ordnungsamt-blue text-white rounded-full flex items-center justify-center shadow-lg"><i className="lucide-plus"></i></button>
+                                </div>
+
+                                {/* Filter Bar */}
+                                <div className="mb-8 relative no-print">
+                                    <i className="lucide-filter absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                                    <select 
+                                        value={filterDist} 
+                                        onChange={e => setFilterDist(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-bold uppercase tracking-widest outline-none focus:border-ordnungsamt-blue transition-all"
+                                    >
+                                        <option value="ALLE">Alle Stadtbezirke</option>
+                                        {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                </div>
+
+                                {filteredEntries.length === 0 ? (
+                                    <div className="mt-20 text-center"><i className="lucide-clipboard-list text-5xl text-gray-100 mb-4 inline-block"></i><p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest leading-relaxed">Keine aktuellen<br/>Beweismittel im System</p></div>
+                                ) : (
+                                    <div className="space-y-5">
+                                        {filteredEntries.map((e, idx) => (
+                                            <div key={idx} className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                <img src={e.img} className="w-full h-44 object-cover" />
+                                                <div className="p-4 space-y-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <div><h3 className="text-xs font-black uppercase text-ordnungsamt-blue">{e.street}</h3><p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{e.district}</p></div>
+                                                        <button 
+                                                            onClick={() => toggleStatus(entries.indexOf(e))}
+                                                            className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border transition-all ${e.status === 'AKTUELL' ? 'bg-red-50 text-red-800 border-red-100' : 'bg-green-50 text-green-800 border-green-100'}`}
+                                                        >
+                                                            {e.status}
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500 italic line-clamp-2">{e.description || "Ohne weitere Anmerkungen"}</p>
+                                                    <div className="text-[8px] font-bold text-gray-300 uppercase border-t border-gray-50 pt-2">{e.time}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* VIEW: AUFNAHME */}
+                        {view === 'AUFNAHME' && (
+                            <div className="p-6 space-y-6">
+                                <div className="flex items-center gap-4 mb-4"><button onClick={() => setView('DASHBOARD')} className="p-2 text-gray-300"><i className="lucide-arrow-left"></i></button><h2 className="text-sm font-black uppercase text-ordnungsamt-blue">Beweissicherung</h2></div>
+                                <div onClick={() => fileRef.current.click()} className="aspect-square bg-gray-50 border-2 border-dashed border-gray-100 rounded-3xl flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group border-ordnungsamt-blue">
+                                    {captureData.img ? <img src={captureData.img} className="w-full h-full object-cover" /> : 
+                                    <div className="text-center"><i className="lucide-camera text-4xl text-ordnungsamt-blue mb-2"></i><p className="text-[10px] font-black text-gray-300 uppercase">Kamera aktivieren</p></div>}
+                                    <input type="file" ref={fileRef} className="hidden" accept="image/*" capture="environment" onChange={e => {
+                                        const f = e.target.files[0]; if(f){ const r = new FileReader(); r.onloadend = () => setCaptureData({...captureData, img: r.result}); r.readAsDataURL(f); }
+                                    }} />
+                                </div>
+                                <div className="space-y-4">
+                                    <input value={captureData.street} onChange={e => setCaptureData({...captureData, street: e.target.value})} placeholder="ADRESSE / STANDORT EXAKT" className="w-full p-4 border border-gray-100 rounded-xl text-xs font-bold uppercase outline-none focus:border-ordnungsamt-blue" />
+                                    <select value={captureData.district} onChange={e => setCaptureData({...captureData, district: e.target.value})} className="w-full p-4 border border-gray-100 rounded-xl text-xs font-bold uppercase outline-none focus:border-ordnungsamt-blue">
+                                        {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                    <textarea value={captureData.description} onChange={e => setCaptureData({...captureData, description: e.target.value})} placeholder="ZUSÄTZLICHE FESTSTELLUNGEN..." className="w-full p-4 border border-gray-100 rounded-xl text-sm min-h-[120px] outline-none" />
+                                    <button onClick={addEntry} className="w-full py-5 bg-ordnungsamt-blue text-white font-black uppercase tracking-[0.2em] rounded-xl shadow-xl active:scale-95 transition-all">Protokoll abschließen</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* VIEW: BERICHTE */}
+                        {view === 'BERICHTE' && (
+                            <div className="p-6">
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-xl font-black uppercase tracking-tighter text-ordnungsamt-blue">Berichte</h2>
+                                    <button onClick={() => window.print()} className="p-3 bg-gray-50 rounded-xl text-gray-400 hover:text-ordnungsamt-blue transition-colors"><i className="lucide-printer"></i></button>
+                                </div>
+                                
+                                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                                    <div className="p-4 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-[#00305e] border-b border-gray-100">Journal Übersicht</div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-[9px] uppercase font-bold">
+                                            <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="p-4">Ortung</th><th className="p-4">Stadtbezirk</th><th className="p-4">Status</th></tr></thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {entries.length === 0 ? <tr><td colSpan="3" className="p-8 text-center text-gray-300">Keine Daten vorhanden</td></tr> : 
+                                                entries.map((e, i) => (
+                                                    <tr key={i} className="hover:bg-gray-50/50">
+                                                        <td className="p-4">{e.street}</td>
+                                                        <td className="p-4 text-gray-400">{e.district}</td>
+                                                        <td className="p-4"><span className={e.status === 'AKTUELL' ? 'text-red-700' : 'text-green-700'}>{e.status}</span></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+
+                    {/* Bottom Nav */}
+                    <nav className="h-20 bg-white border-t border-gray-50 flex items-center justify-around px-2 pb-safe shrink-0 no-print">
+                        <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'DASHBOARD' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-layout-grid"></i><span className="text-[8px] font-black uppercase">Dashboard</span></button>
+                        <button onClick={() => setView('AUFNAHME')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'AUFNAHME' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-camera"></i><span className="text-[8px] font-black uppercase">Foto</span></button>
+                        <button onClick={() => setView('BERICHTE')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'BERICHTE' ? 'text-ordnungsamt-blue' : 'text-gray-300'}`}><i className="lucide-file-text"></i><span className="text-[8px] font-black uppercase">Berichte</span></button>
+                    </nav>
+
+                    {/* Print Version Header */}
+                    <div className="hidden print:block p-10 bg-white">
+                        <div className="flex flex-col items-center border-b-2 border-ordnungsamt-blue pb-8">
+                             <OfficialLogo className="h-16 mb-4" />
+                             <h1 className="text-2xl font-black uppercase tracking-widest text-[#00305e]">Einsatzjournal - Beweissicherung</h1>
+                             <p className="text-sm font-bold text-gray-400 mt-2">DOKUMENTATION VOM {new Date().toLocaleDateString()}</p>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
