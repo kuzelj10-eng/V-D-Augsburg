@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VÜD Augsburg - Premium Portal</title>
     
-    <!-- PWA & Icon Setup -->
     <link rel="icon" type="image/png" href="logo.PNG">
     <link rel="apple-touch-icon" href="logo.PNG">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="VÜD Augsburg">
 
-    <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -21,142 +18,101 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;700&display=swap');
-        
-        :root {
-            --gold: #D4AF37;
-            --black: #000000;
-        }
-
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--black); 
-            color: #ffffff;
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        :root { --gold: #D4AF37; --black: #000000; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--black); color: #ffffff; }
         .font-luxury { font-family: 'Cinzel', serif; }
-        
         .gold-border { border: 1px solid var(--gold); }
         .gold-text { color: var(--gold); }
-        .gold-bg { background-color: var(--gold); }
-        
-        /* Premium Glow Effekt */
-        .gold-glow:focus {
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
-            border-color: var(--gold);
-        }
-
         .gold-button {
             background: linear-gradient(135deg, #D4AF37 0%, #F1D37E 50%, #D4AF37 100%);
-            color: #000;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            transition: all 0.3s ease;
+            color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;
         }
-
-        .gold-button:active { transform: scale(0.96); opacity: 0.9; }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #000; }
-        ::-webkit-scrollbar-thumb { background: #D4AF37; }
-
-        .image-preview {
-            border: 1px solid rgba(212, 175, 55, 0.3);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
+        .gold-glow-focus:focus { box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); border-color: var(--gold); }
+        @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        const DISTRICTS = [
-            'INNENSTADT', 'OBERHAUSEN', 'BÄRENKELLER', 'FIRNHABERAU', 'HAMMERSCHMIEDE', 
-            'LECHHAUSEN', 'HOCHZOLL', 'HERRENBACH', 'SPICKEL', 'HOCHFELD', 
-            'ANTONSVIERTEL', 'ROSENAU-', 'THELOTTVIERTEL', 'PFERSEE', 'KRIEGSHABER', 
-            'GÖGGINGEN', 'INNINGEN', 'BERGHEIM', 'HAUNSTETTEN', 'SIEBENBRUNN'
-        ];
+        const DISTRICTS = ['INNENSTADT', 'OBERHAUSEN', 'BÄRENKELLER', 'FIRNHABERAU', 'HAMMERSCHMIEDE', 'LECHHAUSEN', 'HOCHZOLL', 'HERRENBACH', 'SPICKEL', 'HOCHFELD', 'ANTONSVIERTEL', 'ROSENAU-', 'THELOTTVIERTEL', 'PFERSEE', 'KRIEGSHABER', 'GÖGGINGEN', 'INNINGEN', 'BERGHEIM', 'HAUNSTETTEN', 'SIEBENBRUNN'];
 
         function App() {
             const [user, setUser] = useState(null);
             const [view, setView] = useState('DASHBOARD');
             const [entries, setEntries] = useState([]);
+            const [searchTerm, setSearchTerm] = useState('');
             const [isCompressing, setIsCompressing] = useState(false);
             const [captureData, setCaptureData] = useState({ street: '', district: DISTRICTS[0], description: '', img: null });
             const fileRef = useRef();
 
             useEffect(() => {
-                const saved = localStorage.getItem('vud_premium_data');
+                const saved = localStorage.getItem('vud_v5_full_data');
                 if (saved) setEntries(JSON.parse(saved));
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('vud_premium_data', JSON.stringify(entries));
+                localStorage.setItem('vud_v5_full_data', JSON.stringify(entries));
             }, [entries]);
 
-            // --- PHOTO FIX: Canvas Kompression ---
+            // --- PHOTO FIX ---
             const processImage = (file) => {
                 if (!file) return;
                 setIsCompressing(true);
                 const reader = new FileReader();
-
                 reader.onload = (e) => {
                     const img = new Image();
                     img.src = e.target.result;
                     img.onload = () => {
                         const MAX_WIDTH = 1280;
-                        let width = img.width;
-                        let height = img.height;
-
-                        if (width > MAX_WIDTH) {
-                            height = Math.round((MAX_WIDTH / width) * height);
-                            width = MAX_WIDTH;
-                        }
-
+                        let w = img.width, h = img.height;
+                        if (w > MAX_WIDTH) { h = Math.round((MAX_WIDTH / w) * h); w = MAX_WIDTH; }
                         const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        
-                        // JPEG Drosselung auf 0.7 Qualität
-                        const compressedData = canvas.toDataURL('image/jpeg', 0.7);
-                        setCaptureData(prev => ({ ...prev, img: compressedData }));
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        setCaptureData(prev => ({ ...prev, img: canvas.toDataURL('image/jpeg', 0.7) }));
                         setIsCompressing(false);
                     };
                 };
                 reader.readAsDataURL(file);
             };
 
+            const toggleStatus = (id) => {
+                setEntries(prev => prev.map(e => e.id === id ? { ...e, status: e.status === 'ERLEDIGT' ? 'AKTIV' : 'ERLEDIGT' } : e));
+            };
+
             const addEntry = () => {
                 if (captureData.street && captureData.img) {
-                    const newEntry = { ...captureData, id: Date.now(), timestamp: new Date().toLocaleString('de-DE') };
+                    const newEntry = { ...captureData, id: Date.now(), status: 'AKTIV', timestamp: new Date().toLocaleString('de-DE') };
                     setEntries([newEntry, ...entries]);
                     setCaptureData({ street: '', district: DISTRICTS[0], description: '', img: null });
                     setView('DASHBOARD');
                 }
             };
 
+            // Filter & Sortierung Logik
+            const filteredAndSortedEntries = useMemo(() => {
+                return entries
+                    .filter(e => 
+                        e.street.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        e.district.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .sort((a, b) => {
+                        if (a.status === b.status) return 0;
+                        return a.status === 'AKTIV' ? -1 : 1;
+                    });
+            }, [entries, searchTerm]);
+
             if (!user) {
                 return (
-                    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-black">
-                        <img src="logo.PNG" className="w-48 h-48 mb-12 animate-pulse" alt="VÜD" />
-                        <div className="w-full max-w-sm space-y-8">
-                            <div className="text-center">
-                                <h1 className="font-luxury text-3xl gold-text tracking-widest uppercase">VÜD AUGSBURG</h1>
-                                <p className="text-[10px] text-zinc-500 uppercase tracking-[0.4em] mt-2">Premium Dienst-Portal</p>
-                            </div>
-                            <div className="space-y-4">
-                                <input id="login_name" placeholder="DIENSTNUMMER / NAME" className="w-full p-5 bg-zinc-900/50 border border-zinc-800 gold-glow rounded-none text-xs font-bold uppercase outline-none text-white focus:border-[#D4AF37]" />
-                                <button onClick={() => {
-                                    const val = document.getElementById('login_name').value;
-                                    if(val) setUser({name: val});
-                                }} className="w-full py-5 gold-button shadow-[0_0_20px_rgba(212,175,55,0.2)]">Login bestätigen</button>
-                            </div>
+                    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8">
+                        <img src="logo.PNG" className="w-40 h-40 mb-10" />
+                        <div className="w-full max-w-sm space-y-6">
+                            <h1 className="font-luxury text-2xl gold-text text-center tracking-widest uppercase">VÜD LOGIN</h1>
+                            <input id="l_name" placeholder="DIENSTNUMMER" className="w-full p-5 bg-zinc-900 border border-zinc-800 rounded-none gold-glow-focus uppercase text-xs font-bold outline-none text-white" />
+                            <button onClick={() => { if(document.getElementById('l_name').value) setUser({name: document.getElementById('l_name').value}) }} className="w-full py-5 gold-button">Eintreten</button>
                         </div>
                     </div>
                 );
@@ -164,140 +120,95 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-black flex flex-col relative border-x border-zinc-900">
-                    
-                    {/* Header */}
-                    <header className="h-24 bg-black/80 backdrop-blur-md border-b border-zinc-900 px-6 flex items-center justify-between sticky top-0 z-50">
+                    <header className="h-20 bg-black/90 backdrop-blur-md border-b border-zinc-900 px-6 flex items-center justify-between sticky top-0 z-50">
                         <div className="flex items-center gap-4">
-                            <img src="logo.PNG" className="h-14 w-14 object-contain" />
-                            <div className="flex flex-col">
-                                <span className="font-luxury text-lg gold-text leading-none">VÜD</span>
-                                <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Augsburg</span>
-                            </div>
+                            <img src="logo.PNG" className="h-10 w-10 object-contain" />
+                            <span className="font-luxury text-lg gold-text">VÜD</span>
                         </div>
-                        <button onClick={() => setUser(null)} className="p-2 text-zinc-500 hover:text-[#D4AF37]"><i className="lucide-log-out"></i></button>
+                        <div className="flex gap-4">
+                           <button onClick={() => setView('AUFNAHME')} className="gold-text p-2"><i className="lucide-camera"></i></button>
+                           <button onClick={() => setUser(null)} className="text-zinc-500 p-2"><i className="lucide-log-out"></i></button>
+                        </div>
                     </header>
 
-                    {/* Main Area */}
                     <main className="flex-1 overflow-y-auto pb-24">
-                        
                         {view === 'DASHBOARD' && (
-                            <div className="p-6">
-                                <div className="flex justify-between items-end mb-10">
-                                    <div>
-                                        <h2 className="text-2xl font-luxury text-white">Einsatzjournal</h2>
-                                        <p className="text-[9px] gold-text font-bold uppercase tracking-widest mt-1">Status: Online</p>
-                                    </div>
-                                    <button onClick={() => setView('AUFNAHME')} className="size-14 gold-button rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)]">
-                                        <i className="lucide-plus text-2xl"></i>
-                                    </button>
+                            <div className="p-6 space-y-6">
+                                {/* Search Bar */}
+                                <div className="relative">
+                                    <i className="lucide-search absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4"></i>
+                                    <input 
+                                        value={searchTerm} 
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        placeholder="Straße oder Bezirk suchen..." 
+                                        className="w-full pl-12 pr-4 py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-xs font-bold gold-glow-focus outline-none text-white"
+                                    />
                                 </div>
 
-                                {entries.length === 0 ? (
-                                    <div className="mt-20 text-center border border-zinc-900 rounded-3xl p-16">
-                                        <i className="lucide-map-pin text-3xl text-zinc-800 mb-6 font-light"></i>
-                                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Journal ist leer</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 gap-6">
-                                        {entries.map(e => (
-                                            <div key={e.id} className="bg-zinc-900/30 border border-zinc-800 rounded-2xl overflow-hidden group">
-                                                <img src={e.img} className="w-full aspect-video object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                                                <div className="p-5">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <h3 className="text-xs font-bold gold-text uppercase">{e.street}</h3>
-                                                        <span className="text-[8px] text-zinc-500 font-mono italic">{e.timestamp}</span>
+                                <h2 className="font-luxury text-xl gold-text mb-2">Einsatzliste</h2>
+
+                                <div className="grid grid-cols-1 gap-6">
+                                    {filteredAndSortedEntries.map(e => (
+                                        <div key={e.id} className={`bg-zinc-900/40 border transition-all duration-500 rounded-3xl overflow-hidden ${e.status === 'ERLEDIGT' ? 'border-zinc-900 opacity-40' : 'border-zinc-800'}`}>
+                                            <div className="relative">
+                                                <img src={e.img} className="w-full aspect-video object-cover" />
+                                                <button 
+                                                    onClick={() => toggleStatus(e.id)}
+                                                    className={`absolute top-4 right-4 size-10 rounded-full flex items-center justify-center border-2 backdrop-blur-md active:scale-90 transition-all ${e.status === 'AKTIV' ? 'border-[#D4AF37] gold-text bg-black/40' : 'border-green-500 text-green-500 bg-green-500/10'}`}
+                                                >
+                                                    <i className={e.status === 'AKTIV' ? 'lucide-alert-circle' : 'lucide-check'}></i>
+                                                </button>
+                                            </div>
+                                            <div className="p-5">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className={`text-xs font-black uppercase mb-1 ${e.status === 'AKTIV' ? 'gold-text' : 'text-zinc-500'}`}>{e.street}</h3>
+                                                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{e.district}</p>
                                                     </div>
-                                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{e.district}</p>
+                                                    <span className="text-[7px] font-mono text-zinc-700">{e.timestamp}</span>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         {view === 'AUFNAHME' && (
-                            <div className="p-6 space-y-6">
-                                <div className="flex items-center gap-4 mb-4">
+                            <div className="p-6 space-y-6 animate-in slide-in-from-right duration-300">
+                                <div className="flex items-center gap-4 mb-2">
                                     <button onClick={() => setView('DASHBOARD')} className="p-2 text-zinc-500"><i className="lucide-arrow-left"></i></button>
-                                    <h2 className="text-sm font-luxury gold-text tracking-widest uppercase">AUFNAHME</h2>
+                                    <h2 className="font-luxury gold-text tracking-widest text-sm uppercase">PROTOKOLL</h2>
                                 </div>
-                                
-                                <div onClick={() => fileRef.current.click()} className="aspect-square bg-zinc-900/50 border border-zinc-800 gold-border rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
-                                    {isCompressing ? (
-                                        <div className="flex flex-col items-center">
-                                            <i className="lucide-loader-2 animate-spin gold-text text-3xl mb-4"></i>
-                                            <span className="text-[10px] font-bold gold-text uppercase tracking-widest">Optimierung...</span>
-                                        </div>
-                                    ) : captureData.img ? (
-                                        <img src={captureData.img} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-center group">
-                                            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center gold-text border border-zinc-800 mb-4 mx-auto shadow-[0_0_20px_rgba(212,175,55,0.1)] group-hover:scale-110 transition-transform">
-                                                <i className="lucide-camera text-2xl"></i>
-                                            </div>
-                                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Kamera Öffnen</p>
-                                        </div>
-                                    )}
+                                <div onClick={() => fileRef.current.click()} className="aspect-square bg-zinc-900/50 border border-zinc-800 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden relative">
+                                    {isCompressing ? <i className="lucide-loader-2 animate-spin gold-text text-3xl"></i> :
+                                     captureData.img ? <img src={captureData.img} className="w-full h-full object-cover" /> :
+                                     <div className="text-center font-luxury gold-text text-[10px] animate-pulse">Kamera öffnen</div>}
                                     <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileRef} onChange={e => processImage(e.target.files[0])} />
                                 </div>
-
                                 <div className="space-y-4">
-                                    <input value={captureData.street} onChange={e => setCaptureData({...captureData, street: e.target.value})} placeholder="ADRESSE / ORT" className="w-full p-5 bg-zinc-900/40 border border-zinc-800 gold-glow rounded-xl text-xs font-bold uppercase outline-none text-white" />
-                                    <select value={captureData.district} onChange={e => setCaptureData({...captureData, district: e.target.value})} className="w-full p-5 bg-zinc-900/40 border border-zinc-800 rounded-xl text-[10px] font-bold gold-text uppercase outline-none">
+                                    <input value={captureData.street} onChange={e => setCaptureData({...captureData, street: e.target.value.toUpperCase()})} placeholder="ADRESSE" className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold outline-none uppercase gold-glow-focus" />
+                                    <select value={captureData.district} onChange={e => setCaptureData({...captureData, district: e.target.value})} className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black gold-text uppercase outline-none">
                                         {DISTRICTS.map(d => <option key={d} value={d} className="bg-black">{d}</option>)}
                                     </select>
-                                    <textarea value={captureData.description} onChange={e => setCaptureData({...captureData, description: e.target.value})} placeholder="DIENSTLICHE BEMERKUNG..." className="w-full p-5 bg-zinc-900/40 border border-zinc-800 rounded-xl text-xs italic min-h-[100px] outline-none text-zinc-400" />
-                                    <button onClick={addEntry} disabled={isCompressing || !captureData.img} className={`w-full py-5 gold-button rounded-xl shadow-lg transition-all ${isCompressing || !captureData.img ? 'opacity-30' : ''}`}>Protokoll Signieren</button>
+                                    <textarea value={captureData.description} onChange={e => setCaptureData({...captureData, description: e.target.value})} placeholder="BEMERKUNG..." className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-xs italic min-h-[100px] outline-none" />
+                                    <button onClick={addEntry} disabled={isCompressing || !captureData.img} className="w-full py-5 gold-button rounded-xl shadow-lg active:scale-95 disabled:opacity-30">Fall Absenden</button>
                                 </div>
                             </div>
                         )}
-
-                        {view === 'SYSTEM' && (
-                            <div className="p-8 space-y-8 animate-in fade-in duration-700">
-                                <h1 className="text-2xl font-luxury gold-text tracking-widest text-center">SYSTEM-EXPORT</h1>
-                                <div className="p-8 border border-zinc-800 rounded-3xl bg-zinc-900/10 backdrop-blur-sm">
-                                    <div className="flex flex-col items-center text-center space-y-6">
-                                        <i className="lucide-file-text text-4xl gold-text"></i>
-                                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.3em] leading-relaxed">
-                                            Vollständiges Journal exportieren<br/>
-                                            Beweisstücke: {entries.length}
-                                        </p>
-                                        <button onClick={() => window.print()} className="px-8 py-3 bg-zinc-900 text-[10px] font-black uppercase gold-text border border-[#D4AF37]/30 tracking-widest">
-                                            Bericht Erstellen
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="text-center opacity-30">
-                                    <p className="text-[8px] uppercase tracking-widest">Digitales Siegel VÜD v4.1.0</p>
-                                </div>
-                            </div>
-                        )}
-
                     </main>
 
-                    {/* Bottom Utility Bar */}
-                    <nav className="h-20 bg-black/90 backdrop-blur-md border-t border-zinc-900 flex items-center justify-around px-2 z-50">
-                        <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'DASHBOARD' ? 'gold-text' : 'text-zinc-600'}`}>
-                            <i className="lucide-layout-grid text-xl"></i>
-                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">Journal</span>
-                        </button>
-                        <button onClick={() => setView('AUFNAHME')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'AUFNAHME' ? 'gold-text' : 'text-zinc-600'}`}>
-                            <i className="lucide-camera text-xl"></i>
-                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">Aufnahme</span>
-                        </button>
-                        <button onClick={() => setView('SYSTEM')} className={`flex flex-col items-center gap-1 flex-1 py-1 ${view === 'SYSTEM' ? 'gold-text' : 'text-zinc-600'}`}>
-                            <i className="lucide-file-text text-xl"></i>
-                            <span className="text-[8px] font-black uppercase tracking-[0.2em]">System</span>
-                        </button>
+                    <nav className="h-20 bg-black/90 backdrop-blur-md border-t border-zinc-900 flex items-center justify-around z-50">
+                        <button onClick={() => setView('DASHBOARD')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'DASHBOARD' ? 'gold-text' : 'text-zinc-600'}`}><i data-lucide="layout-grid"></i><span className="text-[8px] font-black uppercase tracking-widest">Journal</span></button>
+                        <button onClick={() => setView('AUFNAHME')} className={`flex flex-col items-center gap-1 flex-1 ${view === 'AUFNAHME' ? 'gold-text' : 'text-zinc-600'}`}><i data-lucide="camera"></i><span className="text-[8px] font-black uppercase tracking-widest">Foto</span></button>
                     </nav>
-
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+        setTimeout(() => lucide.createIcons(), 200);
     </script>
 </body>
 </html>
